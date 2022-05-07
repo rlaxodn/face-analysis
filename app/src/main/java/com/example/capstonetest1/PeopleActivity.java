@@ -2,6 +2,7 @@ package com.example.capstonetest1;
 
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.AssetFileDescriptor;
@@ -12,6 +13,7 @@ import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Matrix;
 import android.graphics.Paint;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.YuvImage;
@@ -20,16 +22,18 @@ import android.media.Image;
 import android.os.Bundle;
 import android.util.Base64;
 import android.util.Log;
+import android.view.Display;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.EditText;
+import android.widget.GridView;
 import android.widget.ImageView;
-import android.widget.ListView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
 import com.google.android.gms.tasks.OnFailureListener;
@@ -89,7 +93,7 @@ public class PeopleActivity extends AppCompatActivity {
         setContentView(R.layout.acrivity_list);
 
         ArrayList<MyData> data_list = new ArrayList<MyData>();
-        ListView listView = findViewById(R.id.listView);
+        GridView listView = findViewById(R.id.listView);
 
         //Load model
         try {
@@ -183,12 +187,16 @@ public class PeopleActivity extends AppCompatActivity {
         //이미지에서 얼굴만 검출
         InputImage input_image = fromBitmap(image_bit, 0);
 
+        //이미지 bitmap -> String
+        String image = BitmapToString(image_bit);
+
         Task<List<Face>> result =
                 detector.process(input_image)
                         .addOnSuccessListener(
                                 new OnSuccessListener<List<Face>>() {
                                     @Override
-                                    public void onSuccess(List<Face> faces) {   // 탐지가 성공할 경우
+                                    public void onSuccess(List<Face> faces) {
+                                        // 탐지가 성공할 경우
                                         Face face = faces.get(0); //Get first face from detected faces
 
                                         //Get bounding box of face
@@ -202,9 +210,6 @@ public class PeopleActivity extends AppCompatActivity {
 
                                         //bitmap -> 임베딩값 구하기
                                         float[] emb = getEmbeedings(scaled);
-
-                                        //얼굴 bitmap -> String
-                                        String image = BitmapToString(scaled);
 
                                         //이름, 이미지 저장
                                         MyData myData = new MyData(name, image, emb);
@@ -228,6 +233,19 @@ public class PeopleActivity extends AppCompatActivity {
                                     @Override
                                     public void onFailure(@NonNull Exception e) { // 탐지가 실패할 경우
                                         Log.e("faces: ", "실패!");
+                                        peopleDialog.dismiss();
+                                        AlertDialog.Builder builder = new AlertDialog.Builder(getApplicationContext());
+
+                                        builder.setTitle("등록실패").setMessage("얼굴이 검출되지 않습니다");
+                                        builder.setPositiveButton("확인", new DialogInterface.OnClickListener() {
+                                            @Override public void onClick(DialogInterface dialogInterface, int i) {
+                                                finish();
+                                            }
+                                        });
+
+                                        AlertDialog alertDialog = builder.create();
+                                        alertDialog.show();
+
                                     }
                                 });
 
@@ -316,7 +334,14 @@ public class PeopleActivity extends AppCompatActivity {
                     in.close();
                     int height = img.getHeight();
                     int width = img.getWidth();
-                    img = img.createScaledBitmap(img,width/3,height/3,true);
+
+                    Display display = getWindowManager().getDefaultDisplay();  // in Activity
+                    /* getActivity().getWindowManager().getDefaultDisplay() */ // in Fragment
+                    Point size = new Point();
+                    display.getRealSize(size); // or getSize(size)
+                    int display_width = size.x/2;
+
+                    img = img.createScaledBitmap(img,display_width, (height/width) * display_width,true);
                     imageView_img.setImageBitmap(img);
 
                 }catch (Exception e)
