@@ -90,8 +90,8 @@ public class MainActivity extends AppCompatActivity {
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     PreviewView previewView;
     ImageView face_preview;
-    Interpreter tfLite;
-    TextView reco_name,preview_info,textAbove_preview;
+    Interpreter tfLite,tfLite_emo;
+    TextView reco_name,preview_info,reco_emotion,textAbove_preview;
     Button recognize,camera_switch, actions;
     ImageButton add_face;
     CameraSelector cameraSelector;
@@ -101,8 +101,8 @@ public class MainActivity extends AppCompatActivity {
     Context context=MainActivity.this;
     int cam_face=CameraSelector.LENS_FACING_BACK; //Default Back Camera
 
-    int[] intValues;
-    int inputSize=112;  //Input size for model
+    int[] intValues,intValues_emo;
+    int inputSize=112,inputSize_emo=64;  //Input size for model
     boolean isModelQuantized=false;
     float[][] embeedings;
     float IMAGE_MEAN = 128.0f;
@@ -113,6 +113,7 @@ public class MainActivity extends AppCompatActivity {
     private static final int MY_CAMERA_REQUEST_CODE = 100;
 
     String modelFile="mobile_face_net.tflite"; //model name
+    String modelFile2="emotion_recog.tflite";
 
     private HashMap<String, SimilarityClassifier.Recognition> registered = new HashMap<>(); //saved Faces
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -122,6 +123,7 @@ public class MainActivity extends AppCompatActivity {
         registered=readFromSP(); //Load saved faces from memory when app starts
         setContentView(R.layout.activity_main);
         reco_name =findViewById(R.id.textView);
+        reco_emotion=findViewById(R.id.textView2);
 //        add_face.setVisibility(View.INVISIBLE);
 
         faceImg = findViewById(R.id.face);
@@ -156,6 +158,7 @@ public class MainActivity extends AppCompatActivity {
         //Load model
         try {
             tfLite=new Interpreter(loadModelFile(MainActivity.this,modelFile));
+            tfLite_emo=new Interpreter(loadModelFile(MainActivity.this,modelFile2));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -404,18 +407,22 @@ public class MainActivity extends AppCompatActivity {
 
                                                     //Crop out bounding box from whole Bitmap(image)
                                                     Bitmap cropped_face = getCropBitmapByCPU(frame_bmp1, boundingBox);
-
+                                                    Bitmap cropped_face2=cropped_face.copy(Bitmap.Config.ARGB_8888,true);
                                                     if(flipX)
                                                         cropped_face = rotateBitmap(cropped_face, 0, flipX, false);
+                                                        cropped_face2 = rotateBitmap(cropped_face2, 0, flipX, false);
 
-                                                    Bitmap mm = cropped_face.copy(Bitmap.Config.ARGB_8888,true);
+                                                    Bitmap mm = cropped_face2.copy(Bitmap.Config.ARGB_8888,true);
+                                                    mm = getResizedBitmap(mm, 400, 400);
                                                     faceImg.setImageBitmap(mm);
 
                                                     //Scale the acquired Face to 112*112 which is required input for model
                                                     Bitmap scaled = getResizedBitmap(cropped_face, 112, 112);
+                                                    Bitmap scaled2 = getResizedBitmap(cropped_face2,64,64);
 
                                                     if(start)
                                                         recognizeImage(scaled); //Send scaled bitmap to create face embeddings.
+                                                        recognizeEmotion(scaled2);
 //                                                    System.out.println(boundingBox);
 
                                                 }
@@ -450,7 +457,55 @@ public class MainActivity extends AppCompatActivity {
         });
         cameraProvider.bindToLifecycle((LifecycleOwner) this, cameraSelector, imageAnalysis, preview);
     }
+    public void recognizeEmotion(final Bitmap bitmap){
+        ByteBuffer imgData2 = ByteBuffer.allocateDirect(1 * inputSize_emo * inputSize_emo * 1 * 4);
 
+        imgData2.order(ByteOrder.nativeOrder());
+
+        intValues_emo = new int[inputSize_emo * inputSize_emo];
+
+        bitmap.getPixels(intValues_emo, 0, bitmap.getWidth(), 0, 0, bitmap.getWidth(), bitmap.getHeight());
+
+        imgData2.rewind();
+
+        for (int i = 0; i < inputSize_emo; ++i) {
+            for (int j = 0; j < inputSize_emo; ++j) {
+                int pixelValue = intValues_emo[i * inputSize_emo + j];
+                int r = (pixelValue >> 16) & 0xFF;
+                int g = (pixelValue >> 8) & 0xFF;
+                int b = pixelValue & 0xFF;
+                float gray = 0.299f*r+0.587f*g+0.114f*b;
+                gray = gray / 255.0f;
+                gray = gray - 0.5f;
+                gray = gray * 2f;
+                imgData2.putFloat(gray);
+            }
+        }
+        float[][] result=new float[1][5];
+
+        tfLite_emo.run(imgData2,result);
+        final Pair<Integer,Float> max =argmax(result[0]);
+        int emotion = max.first;
+        float prob=max.second;
+        System.out.println("result= "+emotion+","+prob);
+        switch(emotion){
+            case 0:
+                reco_emotion.setText("화남");
+                break;
+            case 1:
+                reco_emotion.setText("행복");
+                break;
+            case 2:
+                reco_emotion.setText("보통");
+                break;
+            case 3:
+                reco_emotion.setText("슬픔");
+                break;
+            case 4:
+                reco_emotion.setText("놀람");
+                break;
+        }
+    }
     public void recognizeImage(final Bitmap bitmap) {
 
         // set Face to Preview
@@ -481,7 +536,6 @@ public class MainActivity extends AppCompatActivity {
                     imgData.putFloat((((pixelValue >> 16) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
                     imgData.putFloat((((pixelValue >> 8) & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
                     imgData.putFloat(((pixelValue & 0xFF) - IMAGE_MEAN) / IMAGE_STD);
-
                 }
             }
         }
@@ -545,7 +599,6 @@ public class MainActivity extends AppCompatActivity {
             Log.d("모르는얼굴", "모르는얼굴이다");
             textView.setText("unKnown");
         }
-
 //
 //        float distance_local = Float.MAX_VALUE;
 //        String id = "0";
@@ -627,6 +680,18 @@ public class MainActivity extends AppCompatActivity {
 
         return neighbour_list;
 
+    }
+    private Pair<Integer,Float> argmax(float[] array){
+        int argmax=0;
+        float max=array[0];
+        for(int i=1;i<array.length;i++){
+            float f= array[i];
+            if(f>max){
+                argmax=i;
+                max=f;
+            }
+        }
+        return new Pair<>(argmax,max);
     }
     public Bitmap getResizedBitmap(Bitmap bm, int newWidth, int newHeight) {
         int width = bm.getWidth();
