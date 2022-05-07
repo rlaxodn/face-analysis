@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView android:layout_width="match_parent"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_height="match_parent">
+    <LinearLayout
+        xmlns:android="http://schemas.android.com/apk/res/android"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:background="@color/black"
+        >
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Description"
+            android:gravity="center"
+            android:textSize="50sp"
+            android:textColor="@color/white"
+            android:layout_marginBottom="20dp"
+            />
+        <TextView
+            android:gravity="center"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="&lt;사용법&gt;"
+            android:textColor="@color/white"
+            android:textSize="30sp"
+            />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/white"
+            android:text="1.메인 화면에 등록관리 버튼을 통해 인식할 사람의 얼굴 이미지를 관리
+         \n2.메인화면에 얼굴인식 버튼을 눌러 상대방의 얼굴을 인식
+         \n3.음성을 통해서 상대방이 누구인지 알려줌
+         \n4.얼굴인식 화면에서 표정인식 전환 버튼을 눌러 표정인식 기능으로 전환
+         \n5.메인화면에서 표정인식 버튼으로 표정인식 가능
+         \n6.음성을 통해 상대방의 표정을 알려줌
+         \n7.표정인식 화면에서 얼굴인식 전환 버튼을 눌러 얼굴인식 기능으로 전환"
+            android:textSize="20sp"
+            />
+        <TextView
+            android:layout_marginTop="30dp"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="&lt;취지&gt;"
+            android:textColor="@color/white"
+            android:textSize="30sp"
+            android:gravity="center"
+            />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textColor="@color/white"
+            android:textSize="20sp"
+            android:text="안면인식 장애인들은 상대방의 얼굴을 보아도 누구의 얼굴인지 모르고 표정을 식별할 수 없다.
+        \n이 앱은 휴대폰에 부착된 카메라를 통해 상대방의 얼굴을 인식하여 누구인지 알려주고 표정을 판별하여 상대방이 어떤 표정을 짓고 있는지 사용자에게 음성으로 알려준다.
+        \n이 것으로 안면인식 장애인들은 상대방이 누구인지 알 수 있어 상대방을 낯설게 느끼지 않으며, 상대방의 표정을 알 수 있기에 상대의 기분을 생각하여 배려하며 친밀감을 형성할 수 있다."
+            />
+    </LinearLayout>
+</ScrollView>
