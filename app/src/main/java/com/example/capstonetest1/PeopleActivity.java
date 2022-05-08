@@ -2,10 +2,12 @@ package com.example.capstonetest1;
 
 import android.app.Activity;
 import android.app.Dialog;
+import android.content.ContentResolver;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.res.AssetFileDescriptor;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
@@ -18,8 +20,12 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.YuvImage;
 import android.graphics.drawable.BitmapDrawable;
+import android.media.ExifInterface;
 import android.media.Image;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.util.Base64;
 import android.util.Log;
 import android.view.Display;
@@ -33,6 +39,7 @@ import android.widget.ImageView;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -164,7 +171,7 @@ public class PeopleActivity extends AppCompatActivity {
     public void getImg(View view){
 
         Intent intent = new Intent(Intent.ACTION_PICK);
-        intent.setData(android.provider.MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+        intent.setData(MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
         intent.setType("image/*");
         startActivityForResult(intent, 0);
     }
@@ -320,6 +327,7 @@ public class PeopleActivity extends AppCompatActivity {
 
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.N)
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -328,20 +336,23 @@ public class PeopleActivity extends AppCompatActivity {
             if(resultCode==RESULT_OK)
             {
                 try{
-                    InputStream in = getContentResolver().openInputStream(data.getData());
+                    Uri uri = data.getData();
+                    InputStream in = getContentResolver().openInputStream(uri);
 
                     Bitmap img = BitmapFactory.decodeStream(in);
                     in.close();
+                    img = rotateBitmap(img,uri);
                     int height = img.getHeight();
                     int width = img.getWidth();
-
                     Display display = getWindowManager().getDefaultDisplay();  // in Activity
                     /* getActivity().getWindowManager().getDefaultDisplay() */ // in Fragment
                     Point size = new Point();
                     display.getRealSize(size); // or getSize(size)
                     int display_width = size.x/2;
-
-                    img = img.createScaledBitmap(img,display_width, (height/width) * display_width,true);
+                    double ratio=(double)height/(double)width;
+                    int display_height = (int)(display_width*ratio);
+                    img = img.createScaledBitmap(img,display_width, display_height,true);
+                    System.out.println(String.valueOf(img.getByteCount()));
                     imageView_img.setImageBitmap(img);
 
                 }catch (Exception e)
@@ -415,24 +426,24 @@ public class PeopleActivity extends AppCompatActivity {
 
         return resultBitmap;
     }
+@RequiresApi(api = Build.VERSION_CODES.N)
+    private Bitmap rotateBitmap(Bitmap bitmap, Uri uri) throws IOException {
+        InputStream in = getContentResolver().openInputStream(uri);
+        ExifInterface exif = new ExifInterface(in);
+        in.close();
 
-    private static Bitmap rotateBitmap(
-            Bitmap bitmap, int rotationDegrees, boolean flipX, boolean flipY) {
+        int orientation = exif.getAttributeInt(ExifInterface.TAG_ORIENTATION,ExifInterface.ORIENTATION_NORMAL);
         Matrix matrix = new Matrix();
-
-        // Rotate the image back to straight.
-        matrix.postRotate(rotationDegrees);
-
-        // Mirror the image along the X or Y axis.
-        matrix.postScale(flipX ? -1.0f : 1.0f, flipY ? -1.0f : 1.0f);
-        Bitmap rotatedBitmap =
-                Bitmap.createBitmap(bitmap, 0, 0, bitmap.getWidth(), bitmap.getHeight(), matrix, true);
-
-        // Recycle the old bitmap if it has changed.
-        if (rotatedBitmap != bitmap) {
-            bitmap.recycle();
+        if(orientation == ExifInterface.ORIENTATION_ROTATE_90){
+            matrix.postRotate(90);
         }
-        return rotatedBitmap;
+        else if (orientation == ExifInterface.ORIENTATION_ROTATE_180){
+            matrix.postRotate(180);
+        }
+        else if (orientation == ExifInterface.ORIENTATION_ROTATE_270){
+            matrix.postRotate(270);
+        }
+        return Bitmap.createBitmap(bitmap,0,0,bitmap.getWidth(),bitmap.getHeight(),matrix,true);
     }
 
     //IMPORTANT. If conversion not done ,the toBitmap conversion does not work on some devices.
@@ -526,6 +537,19 @@ public class PeopleActivity extends AppCompatActivity {
         //System.out.println("FORMAT"+image.getFormat());
 
         return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+    }
+    public static String getImageRealPathFromURI(ContentResolver cr, Uri contentUri) {
+        String[] proj = { MediaStore.Images.Media.DATA };
+        Cursor cursor = cr.query(contentUri, proj, null, null, null);
+        if (cursor == null) {
+            return contentUri.getPath();
+        }
+        else {
+            int path = cursor .getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
+            cursor.moveToFirst();
+            String tmp = cursor.getString(path);
+            cursor.close(); return tmp;
+        }
     }
 
 }

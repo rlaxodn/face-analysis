@@ -24,6 +24,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.ParcelFileDescriptor;
+import android.speech.tts.TextToSpeech;
 import android.text.InputType;
 import android.util.Log;
 import android.util.Pair;
@@ -79,10 +80,13 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
+
+import static android.speech.tts.TextToSpeech.ERROR;
 
 public class MainActivity extends AppCompatActivity {
     FaceDetector detector;
@@ -111,9 +115,13 @@ public class MainActivity extends AppCompatActivity {
     private static int SELECT_PICTURE = 1;
     ProcessCameraProvider cameraProvider;
     private static final int MY_CAMERA_REQUEST_CODE = 100;
+    private TextToSpeech tts;
+    int previous_emotion;
 
     String modelFile="mobile_face_net.tflite"; //model name
     String modelFile2="emotion_recog.tflite";
+
+    List<String> name_list; //일정시간 보관될 이름 리스트
 
     private HashMap<String, SimilarityClassifier.Recognition> registered = new HashMap<>(); //saved Faces
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -124,7 +132,21 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         reco_name =findViewById(R.id.textView);
         reco_emotion=findViewById(R.id.textView2);
-//        add_face.setVisibility(View.INVISIBLE);
+
+        name_list = new ArrayList<String>();
+
+        tts = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if(status != ERROR) {
+                    // 언어를 선택한다.
+                    tts.setLanguage(Locale.KOREAN);
+                }
+            }
+        });
+
+        tts.setPitch(1.0f);         // 음성 톤은 기본 설정
+        tts.setSpeechRate(1.0f);    // 읽는 속도를 기본 빠르기로 설정
 
         faceImg = findViewById(R.id.face);
         SharedPreferences sharedPref = getSharedPreferences("Distance",Context.MODE_PRIVATE);
@@ -136,7 +158,6 @@ public class MainActivity extends AppCompatActivity {
         if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.CAMERA}, MY_CAMERA_REQUEST_CODE);
         }
-
 
         //On-screen switch to toggle between Cameras.
         camera_switch.setOnClickListener(new View.OnClickListener() {
@@ -191,7 +212,6 @@ public class MainActivity extends AppCompatActivity {
 //                        Toast.makeText(context, "Clicked", Toast.LENGTH_SHORT).show();
                         hyperparameters();
                         break;
-
                 }
 
             }
@@ -303,8 +323,6 @@ public class MainActivity extends AppCompatActivity {
         builder.show();
     }
 
-
-
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
@@ -368,8 +386,6 @@ public class MainActivity extends AppCompatActivity {
                     e.printStackTrace();
                 }
                 InputImage image = null;
-
-
                 @SuppressLint("UnsafeExperimentalUsageError")
                 // Camera Feed-->Analyzer-->ImageProxy-->mediaImage-->InputImage(needed for ML kit face detection)
 
@@ -428,12 +444,8 @@ public class MainActivity extends AppCompatActivity {
                                                 }
                                                 else
                                                 {
-                                                    if(registered.isEmpty())
-                                                        reco_name.setText("Add Face");
-                                                    else
-                                                        reco_name.setText("No Face Detected!");
+                                                    reco_name.setText("No Face Detected!");
                                                 }
-
                                             }
                                         })
                                 .addOnFailureListener(
@@ -451,8 +463,6 @@ public class MainActivity extends AppCompatActivity {
                                         imageProxy.close(); //v.important to acquire next frame for analysis
                                     }
                                 });
-
-
             }
         });
         cameraProvider.bindToLifecycle((LifecycleOwner) this, cameraSelector, imageAnalysis, preview);
@@ -491,18 +501,39 @@ public class MainActivity extends AppCompatActivity {
         switch(emotion){
             case 0:
                 reco_emotion.setText("화남");
+                // 이전 표정이 화남이 아니라면 음성으로 알려줌
+                if( previous_emotion != 0){
+                    tts.speak("화남",TextToSpeech.QUEUE_FLUSH, null);
+                    previous_emotion=0;
+                }
                 break;
             case 1:
                 reco_emotion.setText("행복");
+                if( previous_emotion != 1){
+                    tts.speak("행복",TextToSpeech.QUEUE_FLUSH, null);
+                    previous_emotion=1;
+                }
                 break;
             case 2:
                 reco_emotion.setText("보통");
+                if( previous_emotion != 2){
+                    tts.speak("보통",TextToSpeech.QUEUE_FLUSH, null);
+                    previous_emotion=2;
+                }
                 break;
             case 3:
                 reco_emotion.setText("슬픔");
+                if( previous_emotion != 3){
+                    tts.speak("슬픔",TextToSpeech.QUEUE_FLUSH, null);
+                    previous_emotion=3;
+                }
                 break;
             case 4:
                 reco_emotion.setText("놀람");
+                if( previous_emotion != 4){
+                    tts.speak("놀람",TextToSpeech.QUEUE_FLUSH, null);
+                    previous_emotion=4;
+                }
                 break;
         }
     }
@@ -586,18 +617,26 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
-        TextView textView = findViewById(R.id.textView);
         if(shortest_distance<0.6)
         {
             //가장 가까운 사람 출력
             System.out.println(shortest_name+"distance="+shortest_distance);
             Log.d("가장가까운사람=",shortest_name);
-            textView.setText(shortest_name);
+
+            //record 리스트에 이름이 없다면 추가
+            if( !name_list.contains(shortest_name) ) {
+                record_name(shortest_name);
+                // 음성으로 알려줌
+                tts.speak(shortest_name,TextToSpeech.QUEUE_FLUSH, null);
+            }
+            reco_name.setText(shortest_name);
         }
         else {
             System.out.println("모르는 얼굴입니다");
             Log.d("모르는얼굴", "모르는얼굴이다");
-            textView.setText("unKnown");
+            reco_name.setText("unKnown");
+            // 음성으로 알려줌
+            tts.speak("모르는 얼굴입니다",TextToSpeech.QUEUE_FLUSH, null);
         }
 //
 //        float distance_local = Float.MAX_VALUE;
@@ -652,6 +691,24 @@ public class MainActivity extends AppCompatActivity {
 //        registered.put(name, rec);
 //    }
 
+
+    //5분간 이름 기억후 제거
+    private void record_name(String name){
+        name_list.add(name);
+        Thread th = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(300000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                int index = name_list.indexOf(name);
+                name_list.remove(index);
+            }
+        });
+        th.start();
+    }
     //Compare Faces by distance between face embeddings
     private List<Pair<String, Float>> findNearest(float[] emb) {
         List<Pair<String, Float>> neighbour_list = new ArrayList<Pair<String, Float>>();
@@ -845,24 +902,6 @@ public class MainActivity extends AppCompatActivity {
         return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
     }
 
-    //Save Faces to Shared Preferences.Conversion of Recognition objects to json string
-    private void insertToSP(HashMap<String, SimilarityClassifier.Recognition> jsonMap,int mode) {
-        if(mode==1)  //mode: 0:save all, 1:clear all, 2:update all
-            jsonMap.clear();
-        else if (mode==0)
-            jsonMap.putAll(readFromSP());
-        String jsonString = new Gson().toJson(jsonMap);
-//        for (Map.Entry<String, SimilarityClassifier.Recognition> entry : jsonMap.entrySet())
-//        {
-//            System.out.println("Entry Input "+entry.getKey()+" "+  entry.getValue().getExtra());
-//        }
-        SharedPreferences sharedPreferences = getSharedPreferences("HashMap", MODE_PRIVATE);
-        SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putString("map", jsonString);
-        //System.out.println("Input josn"+jsonString.toString());
-        editor.apply();
-        Toast.makeText(context, "Recognitions Saved", Toast.LENGTH_SHORT).show();
-    }
 
     //Load Faces from Shared Preferences.Json String to Recognition object
     private HashMap<String, SimilarityClassifier.Recognition> readFromSP(){
@@ -892,16 +931,6 @@ public class MainActivity extends AppCompatActivity {
 //        System.out.println("OUTPUT"+ Arrays.deepToString(outut));
         Toast.makeText(context, "Recognitions Loaded", Toast.LENGTH_SHORT).show();
         return retrievedMap;
-    }
-
-    //Load Photo from phone storage
-    private void loadphoto()
-    {
-        start=false;
-        Intent intent = new Intent();
-        intent.setType("image/*");
-        intent.setAction(Intent.ACTION_GET_CONTENT);
-        startActivityForResult(Intent.createChooser(intent, "Select Picture"), SELECT_PICTURE);
     }
 
     //Similar Analyzing Procedure
@@ -971,6 +1000,17 @@ public class MainActivity extends AppCompatActivity {
 
 
             }
+        }
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // TTS 객체가 남아있다면 실행을 중지하고 메모리에서 제거한다.
+        if(tts != null){
+            tts.stop();
+            tts.shutdown();
+            tts = null;
         }
     }
 
