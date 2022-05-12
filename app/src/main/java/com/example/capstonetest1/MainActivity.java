@@ -636,7 +636,7 @@ public class MainActivity extends AppCompatActivity {
             Log.d("모르는얼굴", "모르는얼굴이다");
             reco_name.setText("unKnown");
             // 음성으로 알려줌
-            tts.speak("모르는 얼굴입니다",TextToSpeech.QUEUE_FLUSH, null);
+            //tts.speak("모르는 얼굴입니다",TextToSpeech.QUEUE_FLUSH, null);
         }
 //
 //        float distance_local = Float.MAX_VALUE;
