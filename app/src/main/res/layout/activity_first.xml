@@ -20,11 +20,21 @@
         <Button
             android:layout_width="match_parent"
             android:layout_height="100dp"
+            android:id="@+id/Button_uvc_start"
+            android:text="UVC동작"
+            android:textSize="45sp"
+            android:onClick="mOnClick"
+            android:background="#999999"
+            />
+        <Button
+            android:layout_width="match_parent"
+            android:layout_height="100dp"
             android:id="@+id/Button_start"
             android:text="동작"
             android:textSize="45sp"
             android:onClick="mOnClick"
             android:background="#999999"
+            android:layout_marginTop="20dp"
             />
         <Button
             android:layout_width="match_parent"

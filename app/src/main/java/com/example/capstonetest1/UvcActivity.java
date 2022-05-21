@@ -1,13 +1,11 @@
 package com.example.capstonetest1;
 
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -19,16 +17,20 @@ import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.RectF;
 import android.graphics.YuvImage;
+import android.hardware.usb.UsbDevice;
 import android.media.Image;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.speech.tts.TextToSpeech;
 import android.text.InputType;
+import android.util.Base64;
 import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
+import android.view.Surface;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -47,14 +49,12 @@ import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
-import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
@@ -63,6 +63,11 @@ import com.google.mlkit.vision.face.Face;
 import com.google.mlkit.vision.face.FaceDetection;
 import com.google.mlkit.vision.face.FaceDetector;
 import com.google.mlkit.vision.face.FaceDetectorOptions;
+import com.jiangdg.usbcamera.UVCCameraHelper;
+import com.serenegiant.usb.CameraDialog;
+import com.serenegiant.usb.USBMonitor;
+import com.serenegiant.usb.common.AbstractUVCCameraHandler;
+import com.serenegiant.usb.widget.CameraViewInterface;
 
 import org.tensorflow.lite.Interpreter;
 
@@ -82,16 +87,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
 import static android.speech.tts.TextToSpeech.ERROR;
 
-public class MainActivity extends AppCompatActivity {
+public class UvcActivity extends AppCompatActivity implements CameraDialog.CameraDialogParent, CameraViewInterface.Callback{
     FaceDetector detector;
     ImageView faceImg;
-    private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     PreviewView previewView;
     ImageView face_preview;
     Interpreter tfLite,tfLite_emo;
@@ -102,8 +105,7 @@ public class MainActivity extends AppCompatActivity {
     boolean developerMode=false;
     float distance= 1.0f;
     boolean start=true,flipX=false;
-    Context context=MainActivity.this;
-    int cam_face=CameraSelector.LENS_FACING_BACK; //Default Back Camera
+    Context context=UvcActivity.this;
 
     int[] intValues,intValues_emo;
     int inputSize=112,inputSize_emo=64;  //Input size for model
@@ -113,7 +115,6 @@ public class MainActivity extends AppCompatActivity {
     float IMAGE_STD = 128.0f;
     int OUTPUT_SIZE=192; //Output size of model
     private static int SELECT_PICTURE = 1;
-    ProcessCameraProvider cameraProvider;
     private static final int MY_CAMERA_REQUEST_CODE = 100;
     private TextToSpeech tts;
     int previous_emotion;
@@ -122,6 +123,13 @@ public class MainActivity extends AppCompatActivity {
     String modelFile2="emotion_recog.tflite";
 
     List<String> name_list; //일정시간 보관될 이름 리스트
+
+    private UVCCameraHelper mCameraHelper;
+    private CameraViewInterface mUVCCameraView;
+
+    private boolean isRequest;
+    private boolean isPreview;
+
 
     private HashMap<String, SimilarityClassifier.Recognition> registered = new HashMap<>(); //saved Faces
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -132,8 +140,24 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
         reco_name =findViewById(R.id.textView);
         reco_emotion=findViewById(R.id.textView2);
+        camera_switch=findViewById(R.id.button5);
+        camera_switch.setVisibility(View.GONE);
 
         name_list = new ArrayList<String>();
+
+        // Camera step.1 initialize UVCCameraHelper
+        mUVCCameraView = (CameraViewInterface) findViewById(R.id.uvcView);
+        mUVCCameraView.setCallback(this);
+        mCameraHelper = UVCCameraHelper.getInstance();
+        mCameraHelper.setDefaultFrameFormat(UVCCameraHelper.FRAME_FORMAT_YUYV);
+        mCameraHelper.initUSBMonitor(this, mUVCCameraView, listener);
+
+        mCameraHelper.setOnPreviewFrameListener(new AbstractUVCCameraHandler.OnPreViewResultListener() {
+            @Override
+            public void onPreviewResult(byte[] nv21Yuv) {
+            }
+        });
+
 
         tts = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
             @Override
@@ -152,34 +176,10 @@ public class MainActivity extends AppCompatActivity {
         SharedPreferences sharedPref = getSharedPreferences("Distance",Context.MODE_PRIVATE);
         distance = sharedPref.getFloat("distance",1.00f);
 
-        camera_switch=findViewById(R.id.button5);
-
-        //Camera Permission
-        if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.CAMERA}, MY_CAMERA_REQUEST_CODE);
-        }
-
-        //On-screen switch to toggle between Cameras.
-        camera_switch.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (cam_face==CameraSelector.LENS_FACING_BACK) {
-                    cam_face = CameraSelector.LENS_FACING_FRONT;
-                    flipX=true;
-                }
-                else {
-                    cam_face = CameraSelector.LENS_FACING_BACK;
-                    flipX=false;
-                }
-                cameraProvider.unbindAll();
-                cameraBind();
-            }
-        });
-
         //Load model
         try {
-            tfLite=new Interpreter(loadModelFile(MainActivity.this,modelFile));
-            tfLite_emo=new Interpreter(loadModelFile(MainActivity.this,modelFile2));
+            tfLite=new Interpreter(loadModelFile(UvcActivity.this,modelFile));
+            tfLite_emo=new Interpreter(loadModelFile(UvcActivity.this,modelFile2));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -190,9 +190,160 @@ public class MainActivity extends AppCompatActivity {
                         .build();
         detector = FaceDetection.getClient(highAccuracyOpts);
 
-        cameraBind();
+
+
+//        //뷰에서 bitmap 추출하여 얼굴검출 실행
+//        Thread th1 = new Thread(new Runnable() {
+//
+//            @Override
+//            public void run() {
+//                Bitmap mediaImage;
+//
+//                while (true) {
+//                    mediaImage = mUVCCameraView.captureStillImage(0,0);
+//                    faceImg.setImageBitmap(mediaImage);
+//                }
+//            }
+//        });
+//        th1.start();
 
     }
+
+    public void startAnalysis(){
+
+    }
+
+    public static Bitmap StringToBitmap(String encodedString) {
+        try {
+            byte[] encodeByte = Base64.decode(encodedString, Base64.DEFAULT);
+            Bitmap bitmap = BitmapFactory.decodeByteArray(encodeByte, 0, encodeByte.length);
+            return bitmap;
+        } catch (Exception e) {
+            e.getMessage();
+            return null;
+        }
+    }
+
+    @Override
+    public USBMonitor getUSBMonitor() {
+        return mCameraHelper.getUSBMonitor();
+    }
+
+    @Override
+    public void onDialogResult(boolean canceled) {
+        if (canceled) {
+            showShortMsg("取消操作");
+        }
+    }
+
+    @Override
+    public void onSurfaceCreated(CameraViewInterface cameraViewInterface, Surface surface) {
+        if (!isPreview && mCameraHelper.isCameraOpened()) {
+//            mCameraHelper.startPreview(mUVCCameraView);
+            isPreview = true;
+            showShortMsg("onSurfaceCreated");
+        }
+    }
+
+    @Override
+    public void onSurfaceChanged(CameraViewInterface cameraViewInterface, Surface surface, int i, int i1) {
+
+    }
+
+    @Override
+    public void onSurfaceDestroy(CameraViewInterface cameraViewInterface, Surface surface) {
+        if (isPreview && mCameraHelper.isCameraOpened()) {
+            mCameraHelper.stopPreview();
+            isPreview = false;
+        }
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        // step.2 register USB event broadcast
+        if (mCameraHelper != null) {
+            mCameraHelper.registerUSB();
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        // step.3 unregister USB event broadcast
+        if (mCameraHelper != null) {
+            mCameraHelper.unregisterUSB();
+        }
+    }
+
+    private void showShortMsg(String msg) {
+        Toast.makeText(this, msg, Toast.LENGTH_SHORT).show();
+    }
+
+    private UVCCameraHelper.OnMyDevConnectListener listener = new UVCCameraHelper.OnMyDevConnectListener() {
+
+        @Override
+        public void onAttachDev(UsbDevice device) {
+            if (mCameraHelper == null || mCameraHelper.getUsbDeviceCount() == 0) {
+                showShortMsg("check no usb camera");
+                return;
+            }
+            // request open permission
+            if (!isRequest) {
+                isRequest = true;
+                if (mCameraHelper != null) {
+                    mCameraHelper.requestPermission(0);
+                }
+            }
+        }
+
+        @Override
+        public void onDettachDev(UsbDevice device) {
+            // close camera
+            if (isRequest) {
+                isRequest = false;
+                isPreview = false;
+                mCameraHelper.closeCamera();
+                showShortMsg(device.getDeviceName() + " is out");
+            }
+        }
+
+        @Override
+        public void onConnectDev(UsbDevice device, boolean isConnected) {
+            if (!isConnected) {
+                showShortMsg("fail to connect,please check resolution params");
+                isPreview = false;
+            } else {
+                isPreview = true;
+                showShortMsg("connecting");
+                // initialize seekbar
+                // need to wait UVCCamera initialize over
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        try {
+                            Thread.sleep(2500);
+                        } catch (InterruptedException e) {
+                            e.printStackTrace();
+                        }
+                        Looper.prepare();
+                        if(mCameraHelper != null && mCameraHelper.isCameraOpened()) {
+//                            mSeekBrightness.setProgress(mCameraHelper.getModelValue(UVCCameraHelper.MODE_BRIGHTNESS));
+//                            mSeekContrast.setProgress(mCameraHelper.getModelValue(UVCCameraHelper.MODE_CONTRAST));
+                        }
+                        Looper.loop();
+                    }
+                }).start();
+//                cameraProvider.unbindAll();
+            }
+        }
+
+        @Override
+        public void onDisConnectDev(UsbDevice device) {
+            showShortMsg("disconnecting");
+        }
+    };
+
     private void testHyperparameter()
     {
 
@@ -229,17 +380,7 @@ public class MainActivity extends AppCompatActivity {
         AlertDialog dialog = builder.create();
         dialog.show();
     }
-    private void developerMode()
-    {
-        if (developerMode) {
-            developerMode = false;
-            Toast.makeText(context, "Developer Mode OFF", Toast.LENGTH_SHORT).show();
-        }
-        else {
-            developerMode = true;
-            Toast.makeText(context, "Developer Mode ON", Toast.LENGTH_SHORT).show();
-        }
-    }
+
     private void addFace()
     {
         {
@@ -323,17 +464,6 @@ public class MainActivity extends AppCompatActivity {
         builder.show();
     }
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == MY_CAMERA_REQUEST_CODE) {
-            if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                Toast.makeText(this, "camera permission granted", Toast.LENGTH_LONG).show();
-            } else {
-                Toast.makeText(this, "camera permission denied", Toast.LENGTH_LONG).show();
-            }
-        }
-    }
 
     private MappedByteBuffer loadModelFile(Activity activity, String MODEL_FILE) throws IOException {
         AssetFileDescriptor fileDescriptor = activity.getAssets().openFd(MODEL_FILE);
@@ -344,29 +474,13 @@ public class MainActivity extends AppCompatActivity {
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
     }
 
-    //Bind camera and preview view
-    private void cameraBind()
-    {
-        cameraProviderFuture = ProcessCameraProvider.getInstance(this);
 
-        previewView=findViewById(R.id.previewView);
-        cameraProviderFuture.addListener(() -> {
-            try {
-                cameraProvider = cameraProviderFuture.get();
-
-                bindPreview(cameraProvider);
-            } catch (ExecutionException | InterruptedException e) {
-                // No errors need to be handled for this in Future.
-                // This should never be reached.
-            }
-        }, ContextCompat.getMainExecutor(this));
-    }
     void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
         Preview preview = new Preview.Builder()
                 .build();
 
         cameraSelector = new CameraSelector.Builder()
-                .requireLensFacing(cam_face)
+//                .requireLensFacing(cam_face)
                 .build();
 
         preview.setSurfaceProvider(previewView.getSurfaceProvider());
@@ -1013,6 +1127,12 @@ public class MainActivity extends AppCompatActivity {
             tts.stop();
             tts.shutdown();
             tts = null;
+        }
+//        FileUtils.releaseFile();
+
+        // step.4 release uvc camera resources
+        if (mCameraHelper != null) {
+            mCameraHelper.release();
         }
     }
 

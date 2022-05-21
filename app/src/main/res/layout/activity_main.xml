@@ -36,8 +36,13 @@
             android:id="@+id/previewView"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
-
         </androidx.camera.view.PreviewView>
+
+        <com.serenegiant.usb.widget.UVCCameraTextureView
+            android:id="@+id/uvcView"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            />
     </FrameLayout>
 
     <TextView
@@ -78,7 +83,7 @@
         android:src="@drawable/ic_launcher_background"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/textView2"
         />
-
-
 </androidx.constraintlayout.widget.ConstraintLayout>

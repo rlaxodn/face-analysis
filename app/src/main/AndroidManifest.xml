@@ -5,13 +5,14 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <application
         android:allowBackup="true"
-        android:icon="@mipmap/ic_launcher"
+        android:icon="@drawable/face_icon"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.CapStoneTest1">
         <activity android:name=".StartActivity"></activity>
         <activity android:name=".MainActivity"></activity>
+        <activity android:name=".UvcActivity"></activity>
         <activity
             android:name=".splash_screen"
             android:label="@string/app_name"

@@ -69,6 +69,10 @@ public class StartActivity extends AppCompatActivity {
                 startActivity(intent2);
 //                Toast.makeText(this,"등록관리창 열기", Toast.LENGTH_SHORT).show();
                 break;
+            case R.id.Button_uvc_start:
+                Intent intent3 = new Intent(getApplicationContext(), UvcActivity.class);
+                startActivity(intent3);
+                break;
         }
     }
 }
