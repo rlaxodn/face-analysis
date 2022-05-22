@@ -77,6 +77,7 @@ import java.nio.ReadOnlyBufferException;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -116,19 +117,20 @@ public class MainActivity extends AppCompatActivity {
     ProcessCameraProvider cameraProvider;
     private static final int MY_CAMERA_REQUEST_CODE = 100;
     private TextToSpeech tts;
-    int previous_emotion;
+    int previous_emotion,arg;
 
     String modelFile="mobile_face_net.tflite"; //model name
     String modelFile2="emotion_recog.tflite";
 
     List<String> name_list; //일정시간 보관될 이름 리스트
+    List<Integer> emo_list = new ArrayList<Integer>();
 
     private HashMap<String, SimilarityClassifier.Recognition> registered = new HashMap<>(); //saved Faces
     @RequiresApi(api = Build.VERSION_CODES.M)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle("기본카메라 동작");
+        getSupportActionBar().setTitle("기본카메라 동작");
 
         registered=readFromSP(); //Load saved faces from memory when app starts
         setContentView(R.layout.activity_main);
@@ -443,7 +445,6 @@ public class MainActivity extends AppCompatActivity {
                                                     if(start)
                                                         recognizeImage(scaled); //Send scaled bitmap to create face embeddings.
                                                     recognizeEmotion(scaled2);
-//                                                    System.out.println(boundingBox);
 
                                                 }
                                                 else
@@ -496,13 +497,21 @@ public class MainActivity extends AppCompatActivity {
             }
         }
         float[][] result=new float[1][5];
-
         tfLite_emo.run(imgData2,result);
         final Pair<Integer,Float> max =argmax(result[0]);
         int emotion = max.first;
         float prob=max.second;
-        System.out.println("result= "+emotion+","+prob);
-        switch(emotion){
+        if(emo_list.size()<6)
+            emo_list.add(emotion);
+        else {
+            int[] emo_count=new int[5];
+            for(int i=0;i<5;i++){
+                emo_count[i]=Collections.frequency(emo_list, i);
+            }
+            arg=argmax(emo_count);
+            emo_list.clear();
+        }
+        switch(arg){
             case 0:
                 reco_emotion.setText("화남");
                 // 이전 표정이 화남이 아니라면 음성으로 알려줌
@@ -540,6 +549,17 @@ public class MainActivity extends AppCompatActivity {
                 }
                 break;
         }
+    }
+    public int argmax(int[] a) {
+        int re = Integer.MIN_VALUE;
+        int arg = -1;
+        for (int i = 0; i < a.length; i++) {
+            if (a[i] > re) {
+                re = a[i];
+                arg = i;
+            }
+        }
+        return arg;
     }
     public void recognizeImage(final Bitmap bitmap) {
 

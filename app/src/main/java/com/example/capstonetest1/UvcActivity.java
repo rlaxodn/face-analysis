@@ -1,6 +1,5 @@
 package com.example.capstonetest1;
 
-import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -31,7 +30,6 @@ import android.text.InputType;
 import android.util.Base64;
 import android.util.Log;
 import android.util.Pair;
-import android.util.Size;
 import android.view.Surface;
 import android.view.TextureView;
 import android.view.View;
@@ -47,12 +45,7 @@ import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
-import androidx.camera.core.ImageAnalysis;
-import androidx.camera.core.ImageProxy;
-import androidx.camera.core.Preview;
-import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
-import androidx.lifecycle.LifecycleOwner;
 
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.OnFailureListener;
@@ -85,13 +78,12 @@ import java.nio.ReadOnlyBufferException;
 import java.nio.channels.FileChannel;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 import static android.speech.tts.TextToSpeech.ERROR;
 
@@ -120,12 +112,13 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
     private static int SELECT_PICTURE = 1;
     private static final int MY_CAMERA_REQUEST_CODE = 100;
     private TextToSpeech tts;
-    int previous_emotion;
+    int previous_emotion,arg;
 
     String modelFile="mobile_face_net.tflite"; //model name
     String modelFile2="emotion_recog.tflite";
 
     List<String> name_list; //일정시간 보관될 이름 리스트
+    List<Integer> emo_list = new ArrayList<Integer>();
 
     private UVCCameraHelper mCameraHelper;
     private CameraViewInterface mUVCCameraView;
@@ -140,7 +133,7 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setTitle("USB카메라 동작");
+        getSupportActionBar().setTitle("USB카메라 동작");
 
         registered=readFromSP(); //Load saved faces from memory when app starts
         setContentView(R.layout.activity_main);
@@ -276,7 +269,7 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
                 try{
                     while(true){
                         //일정 시간에 한번씩 동작
-                        Thread.sleep(200);
+                        Thread.sleep(2000);
                         if(isPreview && textureView != null)
                             handler.sendEmptyMessage(0);
                     }
@@ -286,10 +279,6 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
             }
         });
         th1.start();
-    }
-
-    private void startAnalysis(){
-
     }
 
     private void changeImg(Bitmap bitmap){
@@ -417,7 +406,7 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
                     @Override
                     public void run() {
                         try {
-                            Thread.sleep(2500);
+                            Thread.sleep(100);
                         } catch (InterruptedException e) {
                             e.printStackTrace();
                         }
@@ -574,50 +563,6 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
         return fileChannel.map(FileChannel.MapMode.READ_ONLY, startOffset, declaredLength);
     }
 
-
-    void bindPreview(@NonNull ProcessCameraProvider cameraProvider) {
-        Preview preview = new Preview.Builder()
-                .build();
-
-        cameraSelector = new CameraSelector.Builder()
-//                .requireLensFacing(cam_face)
-                .build();
-
-        preview.setSurfaceProvider(previewView.getSurfaceProvider());
-
-
-        ImageAnalysis imageAnalysis =
-                new ImageAnalysis.Builder()
-                        .setTargetResolution(new Size(640, 480))
-                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST) //Latest frame is shown
-                        .build();
-
-        Executor executor = Executors.newSingleThreadExecutor();
-        imageAnalysis.setAnalyzer(executor, new ImageAnalysis.Analyzer() {
-            @Override
-            public void analyze(@NonNull ImageProxy imageProxy) {
-                try {
-                    Thread.sleep(500);  //Camera preview refreshed every 10 millisec(adjust as required)
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-                InputImage image = null;
-                @SuppressLint("UnsafeExperimentalUsageError")
-                // Camera Feed-->Analyzer-->ImageProxy-->mediaImage-->InputImage(needed for ML kit face detection)
-
-                Image mediaImage = imageProxy.getImage();
-
-                if (mediaImage != null) {
-
-//                    System.out.println("Rotation "+imageProxy.getImageInfo().getRotationDegrees());
-                }
-
-//                System.out.println("ANALYSIS");
-
-            }
-        });
-        cameraProvider.bindToLifecycle((LifecycleOwner) this, cameraSelector, imageAnalysis, preview);
-    }
     public void recognizeEmotion(final Bitmap bitmap){
         ByteBuffer imgData2 = ByteBuffer.allocateDirect(1 * inputSize_emo * inputSize_emo * 1 * 4);
 
@@ -648,7 +593,16 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
         final Pair<Integer,Float> max =argmax(result[0]);
         int emotion = max.first;
         float prob=max.second;
-        System.out.println("result= "+emotion+","+prob);
+        if(emo_list.size()<6)
+            emo_list.add(emotion);
+        else {
+            int[] emo_count=new int[5];
+            for(int i=0;i<5;i++){
+                emo_count[i]= Collections.frequency(emo_list, i);
+            }
+            arg=argmax(emo_count);
+            emo_list.clear();
+        }
         switch(emotion){
             case 0:
                 reco_emotion.setText("화남");
@@ -687,6 +641,17 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
                 }
                 break;
         }
+    }
+    public int argmax(int[] a) {
+        int re = Integer.MIN_VALUE;
+        int arg = -1;
+        for (int i = 0; i < a.length; i++) {
+            if (a[i] > re) {
+                re = a[i];
+                arg = i;
+            }
+        }
+        return arg;
     }
     public void recognizeImage(final Bitmap bitmap) {
 

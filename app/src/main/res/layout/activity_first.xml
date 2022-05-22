@@ -4,47 +4,75 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:paddingRight="20dp"
-    android:paddingLeft="20dp"
     android:background="@color/LIGHTGRAY"
+    android:orientation="vertical"
     >
     <LinearLayout
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:id="@+id/LinearLayout_1"
+        app:layout_constraintBottom_toTopOf="@+id/LinearLayout_2"
         app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        android:background="@color/WHITE"
+        android:orientation="vertical"
+        >
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/main_img"
+            android:layout_gravity="center"
+            />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/LinearLayout_2"
+        android:layout_width="match_parent"
+        android:layout_height="250dp"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintBottom_toBottomOf="parent"
         android:orientation="vertical"
+        android:paddingRight="20dp"
+        android:paddingLeft="20dp"
+        android:paddingBottom="20dp"
+        android:weightSum="3"
         >
         <Button
             android:layout_width="match_parent"
-            android:layout_height="100dp"
+            android:layout_height="0dp"
             android:id="@+id/Button_uvc_start"
-            android:text="UVC동작"
-            android:textSize="45sp"
+            android:text="USB카메라 동작"
+            android:textSize="30sp"
+            android:textColor="@color/WHITE"
             android:onClick="mOnClick"
             android:background="@drawable/btn_style"
+            android:layout_weight="1"
             />
         <Button
             android:layout_width="match_parent"
-            android:layout_height="100dp"
+            android:layout_height="0dp"
             android:id="@+id/Button_start"
-            android:text="동작"
-            android:textSize="45sp"
+            android:text="기본카메라 동작"
+            android:textSize="30sp"
             android:onClick="mOnClick"
             android:background="@drawable/btn_style"
             android:layout_marginTop="20dp"
+            android:textColor="@color/WHITE"
+            android:layout_weight="1"
             />
         <Button
             android:layout_width="match_parent"
-            android:layout_height="100dp"
+            android:layout_height="0dp"
             android:id="@+id/Button_manage"
             android:text="등록 관리"
-            android:textSize="45sp"
+            android:textSize="30sp"
             android:onClick="mOnClick"
             android:background="@drawable/btn_style"
             android:layout_marginTop="20dp"
+            android:textColor="@color/WHITE"
+            android:layout_weight="1"
             />
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
