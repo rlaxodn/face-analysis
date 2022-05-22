@@ -603,7 +603,7 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
             arg=argmax(emo_count);
             emo_list.clear();
         }
-        switch(emotion){
+        switch(arg){
             case 0:
                 reco_emotion.setText("화남");
                 // 이전 표정이 화남이 아니라면 음성으로 알려줌
