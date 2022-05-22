@@ -140,6 +140,8 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setTitle("USB카메라 동작");
+
         registered=readFromSP(); //Load saved faces from memory when app starts
         setContentView(R.layout.activity_main);
         reco_name =findViewById(R.id.textView);
@@ -163,7 +165,6 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
             public void onPreviewResult(byte[] nv21Yuv) {
             }
         });
-
 
         tts = new TextToSpeech(this, new TextToSpeech.OnInitListener() {
             @Override
@@ -197,22 +198,85 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
         detector = FaceDetection.getClient(highAccuracyOpts);
 
 
-
 //        //뷰에서 bitmap 추출하여 얼굴검출 실행
         handler = new Handler(){
             @Override
             public void handleMessage(Message msg){
-                faceImg.setImageBitmap(textureView.getBitmap());
+                Bitmap bitmap=textureView.getBitmap();
+                int rot = (int)textureView.getRotation();
+                InputImage image = null;
+                image = InputImage.fromBitmap(bitmap,rot);
+                //Process acquired image to detect faces
+                Task<List<Face>> result =
+                        detector.process(image)
+                                .addOnSuccessListener(
+                                        new OnSuccessListener<List<Face>>() {
+                                            @Override
+                                            public void onSuccess(List<Face> faces) {
+
+                                                if(faces.size()!=0) {
+
+                                                    Face face = faces.get(0); //Get first face from detected faces
+//                                                    System.out.println(face);
+
+                                                    //mediaImage to Bitmap
+                                                    Bitmap frame_bmp = bitmap;
+
+                                                    //Adjust orientation of Face
+                                                    Bitmap frame_bmp1 = rotateBitmap(frame_bmp, rot, false, false);
+
+                                                    //Get bounding box of face
+                                                    RectF boundingBox = new RectF(face.getBoundingBox());
+
+                                                    //Crop out bounding box from whole Bitmap(image)
+                                                    Bitmap cropped_face = getCropBitmapByCPU(frame_bmp1, boundingBox);
+                                                    Bitmap cropped_face2=cropped_face.copy(Bitmap.Config.ARGB_8888,true);
+                                                    if(flipX)
+                                                        cropped_face = rotateBitmap(cropped_face, 0, flipX, false);
+                                                    cropped_face2 = rotateBitmap(cropped_face2, 0, flipX, false);
+
+                                                    Bitmap mm = cropped_face2.copy(Bitmap.Config.ARGB_8888,true);
+                                                    mm = getResizedBitmap(mm, 400, 400);
+                                                    faceImg.setImageBitmap(mm);
+
+                                                    //Scale the acquired Face to 112*112 which is required input for model
+                                                    Bitmap scaled = getResizedBitmap(cropped_face, 112, 112);
+                                                    Bitmap scaled2 = getResizedBitmap(cropped_face2,64,64);
+
+                                                    if(start)
+                                                        recognizeImage(scaled); //Send scaled bitmap to create face embeddings.
+                                                    recognizeEmotion(scaled2);
+//                                                    System.out.println(boundingBox);
+
+                                                }
+                                                else
+                                                {
+                                                    reco_name.setText("No Face Detected!");
+                                                }
+                                            }
+                                        })
+                                .addOnFailureListener(
+                                        new OnFailureListener() {
+                                            @Override
+                                            public void onFailure(@NonNull Exception e) {
+                                                // Task failed with an exception
+                                                // ...
+                                            }
+                                        })
+                                .addOnCompleteListener(new OnCompleteListener<List<Face>>() {
+                                    @Override
+                                    public void onComplete(@NonNull Task<List<Face>> task) {
+                                    }
+                                });
             }
         };
-        boolean aa = true;
         th1 = new Thread(new Runnable() {
             @Override
             public void run() {
                 try{
                     while(true){
                         //일정 시간에 한번씩 동작
-                        Thread.sleep(3000);
+                        Thread.sleep(200);
                         if(isPreview && textureView != null)
                             handler.sendEmptyMessage(0);
                     }
@@ -242,6 +306,17 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
             e.getMessage();
             return null;
         }
+    }
+
+    //뒤로가기 버튼 눌렀을 때
+    @Override
+    public void onBackPressed() {
+        super.onBackPressed();
+        th1.interrupt(); //스레드 종료
+        Intent intent = new Intent(UvcActivity.this, StartActivity.class); //지금 액티비티에서 다른 액티비티로 이동하는 인텐트 설정
+        intent.setFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP);    //인텐트 플래그 설정
+        startActivity(intent);  //인텐트 이동
+        finish();   //현재 액티비티 종료
     }
 
     @Override
@@ -533,77 +608,12 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
                 Image mediaImage = imageProxy.getImage();
 
                 if (mediaImage != null) {
-                    image = InputImage.fromMediaImage(mediaImage, imageProxy.getImageInfo().getRotationDegrees());
+
 //                    System.out.println("Rotation "+imageProxy.getImageInfo().getRotationDegrees());
                 }
 
 //                System.out.println("ANALYSIS");
 
-                //Process acquired image to detect faces
-                Task<List<Face>> result =
-                        detector.process(image)
-                                .addOnSuccessListener(
-                                        new OnSuccessListener<List<Face>>() {
-                                            @Override
-                                            public void onSuccess(List<Face> faces) {
-
-                                                if(faces.size()!=0) {
-
-                                                    Face face = faces.get(0); //Get first face from detected faces
-//                                                    System.out.println(face);
-
-                                                    //mediaImage to Bitmap
-                                                    Bitmap frame_bmp = toBitmap(mediaImage);
-                                                    int rot = imageProxy.getImageInfo().getRotationDegrees();
-
-                                                    //Adjust orientation of Face
-                                                    Bitmap frame_bmp1 = rotateBitmap(frame_bmp, rot, false, false);
-
-                                                    //Get bounding box of face
-                                                    RectF boundingBox = new RectF(face.getBoundingBox());
-
-                                                    //Crop out bounding box from whole Bitmap(image)
-                                                    Bitmap cropped_face = getCropBitmapByCPU(frame_bmp1, boundingBox);
-                                                    Bitmap cropped_face2=cropped_face.copy(Bitmap.Config.ARGB_8888,true);
-                                                    if(flipX)
-                                                        cropped_face = rotateBitmap(cropped_face, 0, flipX, false);
-                                                    cropped_face2 = rotateBitmap(cropped_face2, 0, flipX, false);
-
-                                                    Bitmap mm = cropped_face2.copy(Bitmap.Config.ARGB_8888,true);
-                                                    mm = getResizedBitmap(mm, 400, 400);
-                                                    faceImg.setImageBitmap(mm);
-
-                                                    //Scale the acquired Face to 112*112 which is required input for model
-                                                    Bitmap scaled = getResizedBitmap(cropped_face, 112, 112);
-                                                    Bitmap scaled2 = getResizedBitmap(cropped_face2,64,64);
-
-                                                    if(start)
-                                                        recognizeImage(scaled); //Send scaled bitmap to create face embeddings.
-                                                    recognizeEmotion(scaled2);
-//                                                    System.out.println(boundingBox);
-
-                                                }
-                                                else
-                                                {
-                                                    reco_name.setText("No Face Detected!");
-                                                }
-                                            }
-                                        })
-                                .addOnFailureListener(
-                                        new OnFailureListener() {
-                                            @Override
-                                            public void onFailure(@NonNull Exception e) {
-                                                // Task failed with an exception
-                                                // ...
-                                            }
-                                        })
-                                .addOnCompleteListener(new OnCompleteListener<List<Face>>() {
-                                    @Override
-                                    public void onComplete(@NonNull Task<List<Face>> task) {
-
-                                        imageProxy.close(); //v.important to acquire next frame for analysis
-                                    }
-                                });
             }
         });
         cameraProvider.bindToLifecycle((LifecycleOwner) this, cameraSelector, imageAnalysis, preview);

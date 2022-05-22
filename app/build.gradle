@@ -78,6 +78,9 @@ dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])
     implementation 'androidx.exifinterface:exifinterface:1.3.3'
 
+    //cardView
+    implementation "androidx.cardview:cardview:1.0.0"
+
 //    USB Camera use
 //    api(name:"AndroidUSBCamera-2.2.8",ext:"aar")
 //    api(name:"common-1.5.20",ext:"aar")

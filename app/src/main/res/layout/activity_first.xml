@@ -4,9 +4,9 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:background="#000000"
     android:paddingRight="20dp"
     android:paddingLeft="20dp"
+    android:background="@color/LIGHTGRAY"
     >
     <LinearLayout
         android:layout_width="wrap_content"
@@ -24,7 +24,7 @@
             android:text="UVC동작"
             android:textSize="45sp"
             android:onClick="mOnClick"
-            android:background="#999999"
+            android:background="@drawable/btn_style"
             />
         <Button
             android:layout_width="match_parent"
@@ -33,7 +33,7 @@
             android:text="동작"
             android:textSize="45sp"
             android:onClick="mOnClick"
-            android:background="#999999"
+            android:background="@drawable/btn_style"
             android:layout_marginTop="20dp"
             />
         <Button
@@ -43,7 +43,7 @@
             android:text="등록 관리"
             android:textSize="45sp"
             android:onClick="mOnClick"
-            android:background="#999999"
+            android:background="@drawable/btn_style"
             android:layout_marginTop="20dp"
             />
     </LinearLayout>

@@ -128,6 +128,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setTitle("기본카메라 동작");
+
         registered=readFromSP(); //Load saved faces from memory when app starts
         setContentView(R.layout.activity_main);
         reco_name =findViewById(R.id.textView);
