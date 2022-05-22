@@ -22,7 +22,9 @@ import android.media.Image;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.Looper;
+import android.os.Message;
 import android.os.ParcelFileDescriptor;
 import android.speech.tts.TextToSpeech;
 import android.text.InputType;
@@ -31,6 +33,7 @@ import android.util.Log;
 import android.util.Pair;
 import android.util.Size;
 import android.view.Surface;
+import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -129,7 +132,8 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
 
     private boolean isRequest;
     private boolean isPreview;
-
+    private Thread th1;
+    private Handler handler;
 
     private HashMap<String, SimilarityClassifier.Recognition> registered = new HashMap<>(); //saved Faces
     @RequiresApi(api = Build.VERSION_CODES.M)
@@ -151,6 +155,8 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
         mCameraHelper = UVCCameraHelper.getInstance();
         mCameraHelper.setDefaultFrameFormat(UVCCameraHelper.FRAME_FORMAT_YUYV);
         mCameraHelper.initUSBMonitor(this, mUVCCameraView, listener);
+
+        TextureView textureView = (TextureView) findViewById(R.id.uvcView);
 
         mCameraHelper.setOnPreviewFrameListener(new AbstractUVCCameraHandler.OnPreViewResultListener() {
             @Override
@@ -193,26 +199,40 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
 
 
 //        //뷰에서 bitmap 추출하여 얼굴검출 실행
-//        Thread th1 = new Thread(new Runnable() {
-//
-//            @Override
-//            public void run() {
-//                Bitmap mediaImage;
-//
-//                while (true) {
-//                    mediaImage = mUVCCameraView.captureStillImage(0,0);
-//                    faceImg.setImageBitmap(mediaImage);
-//                }
-//            }
-//        });
-//        th1.start();
-
+        handler = new Handler(){
+            @Override
+            public void handleMessage(Message msg){
+                faceImg.setImageBitmap(textureView.getBitmap());
+            }
+        };
+        boolean aa = true;
+        th1 = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try{
+                    while(true){
+                        //일정 시간에 한번씩 동작
+                        Thread.sleep(3000);
+                        if(isPreview && textureView != null)
+                            handler.sendEmptyMessage(0);
+                    }
+                }catch (Exception e){
+                    e.printStackTrace();
+                }
+            }
+        });
+        th1.start();
     }
 
     public void startAnalysis(){
 
     }
 
+    private void changeImg(Bitmap bitmap){
+        if(bitmap != null){
+            faceImg.setImageBitmap(bitmap);
+        }
+    }
     public static Bitmap StringToBitmap(String encodedString) {
         try {
             byte[] encodeByte = Base64.decode(encodedString, Base64.DEFAULT);
@@ -334,13 +354,18 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
                         Looper.loop();
                     }
                 }).start();
-//                cameraProvider.unbindAll();
             }
         }
 
         @Override
         public void onDisConnectDev(UsbDevice device) {
+            isPreview=false;
             showShortMsg("disconnecting");
+            try {
+                th1.join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
         }
     };
 
@@ -1134,6 +1159,7 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
         if (mCameraHelper != null) {
             mCameraHelper.release();
         }
+        th1.interrupt();
     }
 
     private Bitmap getBitmapFromUri(Uri uri) throws IOException {
