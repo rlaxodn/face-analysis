@@ -77,9 +77,9 @@ import static com.google.mlkit.vision.common.InputImage.fromBitmap;
 public class PeopleActivity extends AppCompatActivity {
 
     String contact_data;
-    ImageView imageView_img;
+    ImageView imageView_img,imageView;
     EditText editText_name;
-    Dialog peopleDialog;
+    Dialog peopleDialog,imageDialog;
     Gson gson;
     SharedPreferences sp;
     SharedPreferences.Editor editor;
@@ -130,14 +130,34 @@ public class PeopleActivity extends AppCompatActivity {
         PeopleAdapter dataAdapter = new PeopleAdapter(this, data_list);
         listView.setAdapter(dataAdapter);
 
+        listView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                imageDialog = new Dialog(PeopleActivity.this);
+                imageDialog.setContentView(R.layout.dialog_imgview);
+                imageView = imageDialog.findViewById(R.id.imageView4);
+                imageView.setImageBitmap(StringToBitmap(data_list.get(position).getImage()));
+                imageDialog.show();
+            }
+        });
         listView.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
-                editor.remove(data_list.get(i).getName()).commit();
-                Intent intent = getIntent();
-                finish();
-                startActivity(intent);
-                return false;
+                AlertDialog.Builder builder = new AlertDialog.Builder(PeopleActivity.this);
+                builder.setTitle("삭제"); //AlertDialog의 제목 부분
+                builder.setMessage("삭제하시겠습니까?"); //AlertDialog의 내용 부분
+                builder.setPositiveButton("예",new DialogInterface.OnClickListener(){
+                    @Override
+                    public void onClick(DialogInterface dialog, int which) {
+                        editor.remove(data_list.get(i).getName()).commit();
+                        Intent intent = getIntent();
+                        finish();
+                        startActivity(intent);
+                    }
+                });
+                builder.setNegativeButton("아니오",  null);
+                builder.create().show(); //보이기
+                return true;
             }
         });
     }
@@ -351,9 +371,9 @@ public class PeopleActivity extends AppCompatActivity {
                     int display_width = size.x/2;
                     double ratio=(double)height/(double)width;
                     int display_height = (int)(display_width*ratio);
-                    img = img.createScaledBitmap(img,display_width, display_height,true);
-                    System.out.println(String.valueOf(img.getByteCount()));
                     imageView_img.setImageBitmap(img);
+                    img = img.createScaledBitmap(img,display_width, display_height,true);
+
 
                 }catch (Exception e)
                 {

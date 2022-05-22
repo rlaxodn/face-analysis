@@ -224,7 +224,7 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
         th1.start();
     }
 
-    public void startAnalysis(){
+    private void startAnalysis(){
 
     }
 
