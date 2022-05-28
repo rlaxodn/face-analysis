@@ -228,9 +228,9 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
                                                         cropped_face = rotateBitmap(cropped_face, 0, flipX, false);
                                                     cropped_face2 = rotateBitmap(cropped_face2, 0, flipX, false);
 
-                                                    Bitmap mm = cropped_face2.copy(Bitmap.Config.ARGB_8888,true);
-                                                    mm = getResizedBitmap(mm, 400, 400);
-                                                    faceImg.setImageBitmap(mm);
+//                                                    Bitmap mm = cropped_face2.copy(Bitmap.Config.ARGB_8888,true);
+//                                                    mm = getResizedBitmap(mm, 400, 400);
+//                                                    faceImg.setImageBitmap(mm);
 
                                                     //Scale the acquired Face to 112*112 which is required input for model
                                                     Bitmap scaled = getResizedBitmap(cropped_face, 112, 112);
@@ -269,7 +269,7 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
                 try{
                     while(true){
                         //일정 시간에 한번씩 동작
-                        Thread.sleep(2000);
+                        Thread.sleep(400);
                         if(isPreview && textureView != null)
                             handler.sendEmptyMessage(0);
                     }
@@ -593,53 +593,53 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
         final Pair<Integer,Float> max =argmax(result[0]);
         int emotion = max.first;
         float prob=max.second;
-        if(emo_list.size()<6)
+        if(emo_list.size()<5)
             emo_list.add(emotion);
         else {
-            int[] emo_count=new int[5];
-            for(int i=0;i<5;i++){
-                emo_count[i]= Collections.frequency(emo_list, i);
+            int[] emo_count = new int[5];
+            for (int i = 0; i < 5; i++) {
+                emo_count[i] = Collections.frequency(emo_list, i);
             }
-            arg=argmax(emo_count);
+            arg = argmax(emo_count);
             emo_list.clear();
-        }
-        switch(arg){
-            case 0:
-                reco_emotion.setText("화남");
-                // 이전 표정이 화남이 아니라면 음성으로 알려줌
-                if( previous_emotion != 0){
-                    tts.speak("화남",TextToSpeech.QUEUE_FLUSH, null);
-                    previous_emotion=0;
-                }
-                break;
-            case 1:
-                reco_emotion.setText("행복");
-                if( previous_emotion != 1){
-                    tts.speak("행복",TextToSpeech.QUEUE_FLUSH, null);
-                    previous_emotion=1;
-                }
-                break;
-            case 2:
-                reco_emotion.setText("보통");
-                if( previous_emotion != 2){
-                    tts.speak("보통",TextToSpeech.QUEUE_FLUSH, null);
-                    previous_emotion=2;
-                }
-                break;
-            case 3:
-                reco_emotion.setText("슬픔");
-                if( previous_emotion != 3){
-                    tts.speak("슬픔",TextToSpeech.QUEUE_FLUSH, null);
-                    previous_emotion=3;
-                }
-                break;
-            case 4:
-                reco_emotion.setText("놀람");
-                if( previous_emotion != 4){
-                    tts.speak("놀람",TextToSpeech.QUEUE_FLUSH, null);
-                    previous_emotion=4;
-                }
-                break;
+            switch (arg) {
+                case 0:
+                    reco_emotion.setText("보통");
+                    // 이전 표정이 화남이 아니라면 음성으로 알려줌
+                    if (previous_emotion != 0) {
+                        tts.speak("보통", TextToSpeech.QUEUE_FLUSH, null);
+                        previous_emotion = 0;
+                    }
+                    break;
+                case 1:
+                    reco_emotion.setText("행복");
+                    if (previous_emotion != 1) {
+                        tts.speak("행복", TextToSpeech.QUEUE_FLUSH, null);
+                        previous_emotion = 1;
+                    }
+                    break;
+                case 2:
+                    reco_emotion.setText("화남");
+                    if (previous_emotion != 2) {
+                        tts.speak("화남", TextToSpeech.QUEUE_FLUSH, null);
+                        previous_emotion = 2;
+                    }
+                    break;
+                case 3:
+                    reco_emotion.setText("슬픔");
+                    if (previous_emotion != 3) {
+                        tts.speak("슬픔", TextToSpeech.QUEUE_FLUSH, null);
+                        previous_emotion = 3;
+                    }
+                    break;
+                case 4:
+                    reco_emotion.setText("놀람");
+                    if (previous_emotion != 4) {
+                        tts.speak("놀람", TextToSpeech.QUEUE_FLUSH, null);
+                        previous_emotion = 4;
+                    }
+                    break;
+            }
         }
     }
     public int argmax(int[] a) {
@@ -719,21 +719,34 @@ public class UvcActivity extends AppCompatActivity implements CameraDialog.Camer
             MyData myData = gson.fromJson(msg,MyData.class);
             float[] saved_embeeding = myData.getEmbedding();
 
-            //distance 계산
-            float current_distance = 0;
+            //코사인 distance 계산
+            float up_sum = 0;
             for (int i = 0; i < emb.length; i++) {
-                float diff = emb[i] - saved_embeeding[i];
-                current_distance += diff*diff;
+                up_sum += emb[i]*saved_embeeding[i];
             }
-            current_distance = (float) Math.sqrt(current_distance);
 
-            if(current_distance<shortest_distance){
-                shortest_distance=current_distance;
+            float down_left_sum = 0;
+            for (int i = 0; i < emb.length; i++) {
+                down_left_sum += Math.pow(emb[i],2);
+            }
+            down_left_sum = (float)Math.sqrt(down_left_sum);
+
+            float down_right_sum = 0;
+            for (int i = 0; i < emb.length; i++) {
+                down_right_sum += Math.pow(saved_embeeding[i],2);
+            }
+            down_right_sum = (float)Math.sqrt(down_right_sum);
+            float current_distance = 0;
+            current_distance = up_sum/(down_left_sum*down_right_sum);
+
+
+            if(1-current_distance<shortest_distance){
+                shortest_distance=1-current_distance;
                 shortest_name = myData.getName();
             }
         }
 
-        if(shortest_distance<0.8)
+        if(shortest_distance<0.5)
         {
             //가장 가까운 사람 출력
             System.out.println(shortest_name+"distance="+shortest_distance);
