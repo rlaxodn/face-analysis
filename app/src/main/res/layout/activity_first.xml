@@ -66,7 +66,7 @@
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:id="@+id/Button_manage"
-            android:text="등록 관리"
+            android:text="등록인물 관리"
             android:textSize="30sp"
             android:onClick="mOnClick"
             android:background="@drawable/btn_style"

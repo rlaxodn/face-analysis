@@ -32,7 +32,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textColor="@color/black"
-            android:text="1.메인 화면에 등록관리 버튼을 통해 인식할 사람의 얼굴 이미지를 관리
+            android:text="1.메인 화면에 등록인물 관리 버튼을 통해 인식할 사람의 얼굴 이미지를 관리
          \n2.메인화면에 동작버튼과 USB동작 버튼 중 하나를 선택하여 클릭
          \n3.음성을 통해서 상대방이 누구인지 알려줌
          \n4.음성을 통해서 상대방의 표정을 알려줌"
