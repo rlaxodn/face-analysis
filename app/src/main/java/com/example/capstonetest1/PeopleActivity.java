@@ -98,7 +98,7 @@ public class PeopleActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.acrivity_list);
-        getSupportActionBar().setTitle("등록 관리");
+        getSupportActionBar().setTitle("등록인물 관리");
 
         ArrayList<MyData> data_list = new ArrayList<MyData>();
         GridView listView = findViewById(R.id.listView);
