@@ -388,7 +388,7 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void analyze(@NonNull ImageProxy imageProxy) {
                 try {
-                    Thread.sleep(500);  //Camera preview refreshed every 10 millisec(adjust as required)
+                    Thread.sleep(150);  //Camera preview refreshed every 10 millisec(adjust as required)
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
